@@ -1,11 +1,10 @@
-# med_scale_nk.yaml ---
-#
-# Description: a medium scale NK model with capital, capital adjustement costs, capital utilization costs, and habits
-# The model is inspired by "A Baseline DSGE Model" (Fernández-Villaverde and Rubio-Ramírez, manuscript) and by "The zero lower bound, the dual mandate, and unconventional dynamics" (Gavin, Keen, Richter, Throckmorton, 2015 JEDC)
-# Author: Gregor Boehl [mail@gregorboehl.com]
+# Description: 
+# A medium scale NK model with capital, capital adjustement costs, capital utilization costs, habits, and price indexation.
+# The model is inspired by "A Baseline DSGE Model" (Fernández-Villaverde and Rubio-Ramírez, manuscript), by "The zero lower bound, the dual mandate, and unconventional dynamics" (Gavin et al., 2015 JEDC), and the WP version of "The Emprirical Implications of the Interest-Rate Lower Bound" (Gust et al, Fed WP 2012-083)
+# Authors: Gregor Boehl [mail@gregorboehl.com], Andreas Koundouros 
 ---
 
-name: 'nk_capital'
+name: 'med_scale_nk'
 variables: [y, c, pi, R, Rn, Rk, beta, w, q, mc, k, i, n, hhdf, g, b, qb, t, ds, bprof, dd, MPK, cap_util, cap_util_costs, y_prod, pitilde]
 parameters: [ theta, kappa, psi, delta, alpha, Phi, phi_pi, phi_y, h, rho, eta, rho_beta, chi, par_cap_util1, omega]
 shocks: [e_beta]
@@ -14,48 +13,62 @@ aux_equations: |
     par_cap_util0 = MPKSS
 
 equations:
-      # households
-    ~ w = chi*n**eta*(c - h*cLag)
-    ~ 1 = R/piPrime*hhdf
+    # BLOCK: households
+    # hh discount factor
     ~ hhdf = betaPrime*(c - h*cLag)/(cPrime - h*c)
+    # FOC labor supply
+    ~ w = chi*n**eta*(c - h*cLag)
+    # euler equation
+    ~ 1 = R/piPrime*hhdf
+    # budget constraint
     ~ dd + c + t + Phi/2*(i/iLag - 1)**2*i = w*n + RLag/pi*ddLag + (1 - mc - psi/2*(pi/pitildeLag - 1)**2)*y + (q*(1 - Phi/2*(i/iLag - 1)**2) - 1)*i + bprof
 
-      # capital
-    ~ 1 = q*(1 - Phi/2*(i/iLag - 1)**2 - Phi*(i/iLag - 1)*i/iLag) + hhdf*qPrime*Phi*(iPrime/i - 1)*(iPrime/i)**2
-    ~ k = (1-delta)*kLag + (1 - Phi/2*(i/iLag - 1)**2)*i
-
-      # "banks"
-    ~ ds = qb*b + q*k
-    ~ R = (1 + kappa*qbPrime)/qb
-    ~ R = Rk
-    ~ bprof = ((1+kappa*qb)*bLag + RkLag*qLag*kLag - RLag*ddLag)/pi
-
-      # government
-    ~ g + (1+kappa*qb)/pi*bLag = qb*b + t
-    ~ g = 0.2*ySS
-    ~ b = ySS/qbSS
-
-      # clearing
+    # goods market clearing
     ~ c + i + g + Phi/2*(i/iLag - 1)**2*i + cap_util_costs*kLag = (1-psi*(pi/pitildeLag - 1)**2/2)*y_prod
+    # definition "effective output"
     ~ c + i + g = y
 
-      # firms
+    # BLOCK: firms
     ~ cap_util_costs = par_cap_util0*(cap_util - 1) + par_cap_util1/(1-par_cap_util1)/2*(cap_util - 1)**2
     ~ MPK = par_cap_util0 + par_cap_util1/(1-par_cap_util1)*(cap_util - 1)
     ~ MPK = alpha*mc*y/(cap_util*kLag)
-    ~ q*Rk/piPrime = MPKPrime*cap_utilPrime + (1-delta)*qPrime - cap_util_costs
     ~ w = (1-alpha)*mc*y/n
+    ~ q*Rk/piPrime = MPKPrime*cap_utilPrime + (1-delta)*qPrime - cap_util_costs
     
+    # capital accumulation
+    ~ k = (1-delta)*kLag + (1 - Phi/2*(i/iLag - 1)**2)*i
+    # capital euler equation
+    ~ 1 = q*(1 - Phi/2*(i/iLag - 1)**2 - Phi*(i/iLag - 1)*i/iLag) + hhdf*qPrime*Phi*(iPrime/i - 1)*(iPrime/i)**2
+    # price PC
     ~ psi*(pi/pitildeLag - 1)*pi/pitildeLag = (1-theta) + theta*mc + psi*hhdf*(piPrime/pitilde - 1)*piPrime/pitilde*yPrime/y
+    # price indexation term
     ~ pitilde = piSS**omega * pi**(1-omega)
-    
+    # production function
     ~ y_prod = (kLag*cap_util)**alpha*n**(1-alpha)
 
-      # central bank
+    # BLOCK: "banks"
+    # "banks" balance sheet (defines deposits supply)
+    ~ ds = qb*b + q*k
+    # no arbitrage: bondprice via perpituities
+    ~ R = (1 + kappa*qbPrime)/qb
+    # no arbitrage: rental rate of capital
+    ~ R = Rk
+    # "bank" profits
+    ~ bprof = ((1+kappa*qb)*bLag + RkLag*qLag*kLag - RLag*ddLag)/pi
+
+    # BLOCK: government
+    # government budget constraint
+    ~ g + (1+kappa*qb)/pi*bLag = qb*b + t
+    # fixing level of government spending
+    ~ g = 0.2*ySS
+    # fixing level of government debt
+    ~ b = ySS/qbSS
+
+    # monetary policy
     ~ Rn = (RSS*((pi/piSS)**phi_pi)*((y/ySS)**phi_y))**(1-rho)*RnLag**rho
     ~ R = max(1, Rn)
 
-      # exogenous
+    # exogenous shocks
     ~ beta = betaSS*(betaLag/betaSS)**rho_beta*exp(e_beta)
 
 steady_state:
@@ -82,7 +95,7 @@ steady_state:
         n: 0.33
         mc: (theta-1)/theta
         q: 1.
-        pitilde: 1.02^.25
+        pitilde: pi
 
     init_guesses:
         chi: 1e+1
